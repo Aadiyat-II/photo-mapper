@@ -6,10 +6,10 @@ from django.conf import settings
 
 # Create your models here.
 
-def  photo_directory_path(instance, filename):
+def photo_directory_path(instance, filename):
     ext = filename.split('.')[-1]
     unique_filename = f"{instance.id.hex}.{ext}"
-    return os.path.join("uploads", str(instance.user.id), unique_filename).replace('\\', '/')
+    return os.path.join("images", str(instance.user.id), unique_filename).replace('\\', '/')
 
 
 class Tag(models.Model):
