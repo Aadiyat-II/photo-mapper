@@ -84,8 +84,11 @@ ASGI_APPLICATION = 'photo_mapper_webserver.asgi.application'
 DATABASES = {
     "default": {
         "ENGINE": "django.contrib.gis.db.backends.postgis",
-        "NAME": "geodjango",
-        "USER": "geo",
+        "NAME": env("POSTGIS_DB_NAME"),
+        "USER": env("POSTGIS_USER"),
+        "PASSWORD": env('POSTGIS_PWD'),
+        "HOST": env('POSTGIS_HOST'),
+        "PORT": env('POSTGIS_PORT'),
     },
 }
 
