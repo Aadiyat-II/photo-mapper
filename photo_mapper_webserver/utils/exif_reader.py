@@ -4,6 +4,8 @@ from PIL.TiffImagePlugin import IFDRational
 from django.core.files.uploadedfile import UploadedFile
 from django.contrib.gis.geos import Point
 
+from .exif_exception import DateTimeMissingException, GPSInfoMissingException
+
 
 def read_photo_metadata(photo_file: UploadedFile):
     """
@@ -19,7 +21,7 @@ def read_photo_metadata(photo_file: UploadedFile):
 
     with Image.open(photo_file) as img:
         exif = img.getexif()
-
+    
     dt = get_datetime(exif)
     point = get_location(exif)
 
@@ -41,7 +43,7 @@ def get_datetime(exif: Image.Exif):
             r"%Y:%m:%d %H:%M:%S"
         )
     except TypeError:
-        raise Exception("Exif data missing datetime.")
+        raise DateTimeMissingException("Exif data missing datetime.")
     else:
         return dt 
 
@@ -67,9 +69,9 @@ def get_location(exif: Image.Exif):
             gps_ifd.get(ExifTags.GPS.GPSLongitudeRef)
         )
     except TypeError:
-        raise Exception("Exif data missing GSP Info.")
+        raise GPSInfoMissingException("Exif data missing GSP Info.")
     except AttributeError:
-        raise Exception("Exif data missing GPS Info")
+        raise GPSInfoMissingException("Exif data missing GPS Info")
     else:
         return Point(lon, lat)
 

@@ -7,7 +7,7 @@ from PIL.TiffImagePlugin import IFDRational
 from django.contrib.gis.geos import Point
 
 from .exif_reader import get_datetime, get_location, DMS_to_decimal
-
+from .exif_exception import DateTimeMissingException, GPSInfoMissingException
 
 class ExifReaderTests(TestCase):
 
@@ -37,14 +37,14 @@ class ExifReaderTests(TestCase):
 
         exif_mock.get_ifd.return_value = exif_ifd_mock    
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(DateTimeMissingException):
             get_datetime(exif_mock)
 
     def test_get_datetime_raises_exception_if_exif_ifd_missing(self):
         exif_mock = MagicMock()
         exif_mock.get_ifd.return_value = { }
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(DateTimeMissingException):
             get_datetime(exif_mock)
 
     def test_DMS_to_decimal(self):
@@ -120,7 +120,7 @@ class ExifReaderTests(TestCase):
 
         exif_mock.get_ifd.return_value = gps_ifd_mock
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(GPSInfoMissingException):
             get_location(exif_mock)
 
 
@@ -134,7 +134,7 @@ class ExifReaderTests(TestCase):
             ExifTags.GPS.GPSLongitudeRef: "W",
         }
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(GPSInfoMissingException):
             get_location(exif_mock)
 
     def test_get_location_raises_exception_if_gps_ifd_missing(self):
@@ -142,5 +142,5 @@ class ExifReaderTests(TestCase):
 
         exif_mock.get_ifd.return_value = { }
 
-        with self.assertRaises(Exception):
+        with self.assertRaises(GPSInfoMissingException):
             get_location(exif_mock)
