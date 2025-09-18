@@ -16,7 +16,7 @@ User = get_user_model()
 
 class PhotoTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create(username="fakeuser", password="fakepwd")
+        self.owner = User.objects.create(username="fakeuser", password="fakepwd")
         tag_names = ["urban", "nature"]
         self.tags = Tag.objects.bulk_create(
             [Tag(name=name) for name in tag_names]
@@ -40,7 +40,7 @@ class PhotoTests(TestCase):
 
         self.photos = Photo.objects.bulk_create(
             [Photo(
-                user = self.user,
+                owner = self.owner,
                 image = image_file,
                 location = self.location,
                 datetime = self.datetime,
@@ -50,10 +50,10 @@ class PhotoTests(TestCase):
     def test_photo_directory_path(self):
         mock_instance = MagicMock()
         mock_instance.id = uuid.uuid4()
-        mock_instance.user = self.user
+        mock_instance.owner = self.owner
         filename = "DSCF0001.jpg"
 
-        expected_path = f"images/{self.user.id}/{mock_instance.id.hex}.jpg"
+        expected_path = f"images/{self.owner.id}/{mock_instance.id.hex}.jpg"
         actual_path = photo_directory_path(mock_instance, filename)
 
         self.assertEqual(actual_path, expected_path)
@@ -61,13 +61,13 @@ class PhotoTests(TestCase):
     def test_photo_model(self):
         self.assertIsInstance(self.photos[0], Photo)
 
-        self.assertEqual(self.photos[0].user, self.user)
+        self.assertEqual(self.photos[0].owner, self.owner)
         self.assertEqual(self.photos[0].location, self.location)
         self.assertEqual(self.photos[0].datetime, self.datetime)
         self.assertIsInstance(self.photos[0].id, uuid.UUID)
 
         # Test photo upload directory
-        expected_path = f"images/{self.user.id}/{self.photos[0].id.hex}.jpg"
+        expected_path = f"images/{self.owner.id}/{self.photos[0].id.hex}.jpg"
         actual_path = self.photos[0].image.path
         self.assertIn(expected_path, actual_path.replace("\\", "/")) # Windows style path to Unix style path
 
@@ -84,10 +84,10 @@ class PhotoTests(TestCase):
         self.assertEqual(self.photos[0].tags.first().name, "urban")
 
         # Relationship from tag to photo
-        self.assertEqual(self.tags[0].tags.count(), 2)
-        self.assertEqual(self.tags[1].tags.count(), 1)
+        self.assertEqual(self.photos[0].tags.count(), 2)
+        self.assertEqual(self.photos[1].tags.count(), 1)
         
-        related_photos = [photo.id for photo in self.tags[0].tags.all()]
+        related_photos = [photo.id for photo in self.tags[0].photos.all()]
         for photo in self.photos:
             self.assertIn(photo.id, related_photos)
 
