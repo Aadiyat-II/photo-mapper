@@ -9,7 +9,7 @@ from django.conf import settings
 def photo_directory_path(instance, filename):
     ext = filename.split('.')[-1]
     unique_filename = f"{instance.id.hex}.{ext}"
-    return os.path.join("images", str(instance.user.id), unique_filename).replace('\\', '/')
+    return os.path.join("images", str(instance.owner.id), unique_filename).replace('\\', '/')
 
 
 class Tag(models.Model):
@@ -21,7 +21,7 @@ class Tag(models.Model):
 
 class Photo(models.Model):    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     image = models.ImageField(upload_to=photo_directory_path)
     location = models.PointField()
     datetime = models.DateTimeField()
