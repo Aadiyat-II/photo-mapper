@@ -26,3 +26,6 @@ class Photo(models.Model):
     location = models.PointField()
     datetime = models.DateTimeField()
     tags = models.ManyToManyField(Tag, related_name='tags')
+
+    def __str__(self):
+        return f"{self.location.wkt}:{self.datetime}"
