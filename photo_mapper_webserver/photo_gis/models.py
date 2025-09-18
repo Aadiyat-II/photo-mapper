@@ -25,7 +25,7 @@ class Photo(models.Model):
     image = models.ImageField(upload_to=photo_directory_path)
     location = models.PointField()
     datetime = models.DateTimeField()
-    tags = models.ManyToManyField(Tag, related_name='tags')
+    tags = models.ManyToManyField(Tag, related_name='photos')
 
     def __str__(self):
         return f"{self.location.wkt}:{self.datetime}"
