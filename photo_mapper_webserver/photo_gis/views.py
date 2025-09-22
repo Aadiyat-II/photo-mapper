@@ -32,14 +32,19 @@ class PhotoList(GenericAPIView):
         return Response(serializer.data)
     
     def post(self, request: Request):
-        files = request.FILES.getlist('images', [])
-        if not files:
-            return Response({"message": "No files submitted."}, status=status.HTTP_400_BAD_REQUEST)
+        """
+        Uploads one or more photos and associated tags.
+        Request body must have the key 'images' where the value is a list of image files
+        Request body may have the key 'tags' where the value is a list of lists of strings
+            the ith inner list corresponds to the list of tags associated with the ith image
+        """
+        images = request.FILES.getlist('images', [])
+        if not images:
+            return Response({"message": "No images submitted."}, status=status.HTTP_400_BAD_REQUEST)
         
-        tags = request.data.getlist('tags', [])
+        tags_lists = request.data.getlist('tags', [])
 
-        data = [{"image" : file, "tags": json.loads(tags)} for file, tags in zip(files, tags)]
-        print(data)
+        data = [{"image" : image, "tags": json.loads(tags)} for image, tags in zip(images, tags_lists)]
         serializer = PhotoSerializer(data=data, many=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
