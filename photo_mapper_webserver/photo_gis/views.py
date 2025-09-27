@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
 from rest_framework.reverse import reverse
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
 import rest_framework.status as status
 
 from photo_gis.models import Photo, Tag
@@ -29,6 +30,8 @@ def api_root(request: Request):
 
 
 class PhotoList(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request: Request):
         photos = Photo.objects.all()
         serializer = PhotoSerializer(photos, many=True)
@@ -65,6 +68,8 @@ class PhotoList(GenericAPIView):
 
 
 class TagList(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request: Request):
         tags = Tag.objects.all()
         serializer = TagSerializer(tags, many=True)
