@@ -1,4 +1,5 @@
 import json
+from django.db.utils import IntegrityError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
@@ -38,17 +39,25 @@ class PhotoList(GenericAPIView):
         Request body may have the key 'tags' where the value is a list of lists of strings
             the ith inner list corresponds to the list of tags associated with the ith image
         """
-        images = request.FILES.getlist('images', [])
+        images = request.FILES.getlist('image', [])
+        
         if not images:
             return Response({"message": "No images submitted."}, status=status.HTTP_400_BAD_REQUEST)
         
-        tags_lists = request.data.getlist('tags', [])
+        data = {
+            "image": images[0],
+            "tags": request.data.getlist("tags", [])
+        }
 
-        data = [{"image" : image, "tags": json.loads(tags)} for image, tags in zip(images, tags_lists)]
-        serializer = PhotoSerializer(data=data, many=True)
+        serializer = PhotoSerializer(data=data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({"message" : "Photos created"}, status=status.HTTP_200_OK)
+
+        try:
+            serializer.save()
+        except IntegrityError:
+            return Response({"message": "A photo at the same time and location already exists"}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({"message" : "Photos created"}, status=status.HTTP_201_CREATED)
 
 
 class TagList(GenericAPIView):

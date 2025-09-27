@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer, ReadOnlyField
+from rest_framework.serializers import ModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
 from photo_gis.models import Photo, Tag
 from utils.exif_reader import read_photo_metadata
 
@@ -11,12 +11,18 @@ class TagSerializer(ModelSerializer):
 
 class PhotoSerializer(ModelSerializer):
     owner = ReadOnlyField(source="owner.username")
-    tags = TagSerializer(many=True)
+    tags = ListField(
+        child = CharField(max_length=50), 
+        write_only=True,
+    )
+    # TODO: max_length is a property of Tag. Putting it here again as a magic number is bad practice
+
+    tag_names = StringRelatedField(many=True, source="tags", read_only=True)
 
     class Meta:
         model = Photo
-        fields = ["owner", "image", "location", "timestamp", "tags"]
-        read_only_fields = ["owner", "location", "timestamp",]
+        fields = ["owner", "image", "location", "timestamp", "tags", "tag_names"]
+        read_only_fields = ["owner", "location", "timestamp"]
 
     def create(self, validated_data):
         from django.contrib.auth import get_user_model
@@ -30,8 +36,7 @@ class PhotoSerializer(ModelSerializer):
         validated_data["location"] = loc
         validated_data["owner"] = owner
 
-        tag_data = validated_data.pop("tags")
-        tags = [Tag.objects.get_or_create(name=tag["name"])[0] for tag in tag_data]
+        tags = [Tag.objects.get_or_create(name=tag)[0] for tag in validated_data.pop("tags")]
 
         photo = Photo.objects.create(**validated_data)
         photo.tags.set(tags)
