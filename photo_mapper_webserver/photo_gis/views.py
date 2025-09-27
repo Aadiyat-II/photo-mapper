@@ -10,6 +10,8 @@ import rest_framework.status as status
 from photo_gis.models import Photo, Tag
 from photo_gis.serializers import PhotoSerializer, TagSerializer
 
+from utils.exif_exception import ExifException
+
 # Create your views here.
 
 @api_view(['GET'])
@@ -56,6 +58,8 @@ class PhotoList(GenericAPIView):
             serializer.save()
         except IntegrityError:
             return Response({"message": "A photo at the same time and location already exists"}, status=status.HTTP_400_BAD_REQUEST)
+        except ExifException:
+            return Response({"message": "Photo is missing datetime or GPS information."}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({"message" : "Photos created"}, status=status.HTTP_201_CREATED)
 
