@@ -6,7 +6,7 @@ from django.test import TestCase
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
-from django.db.utils import IntegrityError
+from django.db.utils import IntegrityError, DataError
 
 from .models import Tag, Photo, photo_directory_path
 
@@ -72,8 +72,6 @@ class PhotoTests(TestCase):
         actual_path = self.photos[0].image.path
         self.assertIn(expected_path, actual_path.replace("\\", "/")) # Windows style path to Unix style path
 
-    def test_tag_model(self):
-        self.assertEqual(self.tags[0].name, "urban")
 
     def test_photo_tag_relationship(self):
         self.photos[0].tags.add(*Tag.objects.all())
@@ -103,15 +101,31 @@ class PhotoTests(TestCase):
         with self.assertRaises(IntegrityError):
             Photo.objects.create(**duplicate_photo)
 
-    def test_tags_unique(self):
-        duplicate_tag = {
-            "name" : self.tags[0].name
-        }
-
-        with self.assertRaises(IntegrityError):
-            Tag.objects.create(**duplicate_tag)
 
     def tearDown(self):
         super().tearDown()
 
         shutil.rmtree('images')
+
+class TagTests(TestCase):
+    def setUp(self):
+        self.tag = Tag.objects.create(name="urban")
+
+    def test_tag_model(self):
+        self.assertEqual(self.tag.name, "urban")
+
+    def test_tags_unique_case_insensitive(self):
+        duplicate_tag = {
+            "name" : "uRbAn"
+        }
+
+        with self.assertRaises(IntegrityError):
+            Tag.objects.create(**duplicate_tag)
+
+    def test_tags_length_constraints(self):
+        long_tag = {
+            "name" : "urbanphotostakenatgoldenhourinaprilormarchonpartiallycloudydays"
+        }
+
+        with self.assertRaises(DataError):
+            Tag.objects.create(**long_tag)

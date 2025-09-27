@@ -1,6 +1,7 @@
 import os
 import uuid
 from django.contrib.gis.db import models
+from django.db.models.functions import Lower
 from django.conf import settings
 
 # Create your models here.
@@ -12,7 +13,12 @@ def photo_directory_path(instance, filename):
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(Lower('name'), name="name_case_insensitive_unique_constraint")
+        ]
 
     def __str__(self):
         return self.name
