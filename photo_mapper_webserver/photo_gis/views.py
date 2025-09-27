@@ -32,9 +32,12 @@ def api_root(request: Request):
 class PhotoList(GenericAPIView):
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        return Photo.objects.filter(owner=self.request.user)
+
     def get(self, request: Request):
-        photos = Photo.objects.all()
-        serializer = PhotoSerializer(photos, many=True)
+        queryset = self.get_queryset()
+        serializer = PhotoSerializer(queryset, many=True)
         return Response(serializer.data)
     
     def post(self, request: Request):
@@ -54,7 +57,7 @@ class PhotoList(GenericAPIView):
             "tags": request.data.getlist("tags", [])
         }
 
-        serializer = PhotoSerializer(data=data)
+        serializer = PhotoSerializer(data=data, context = {"owner": request.user})
         serializer.is_valid(raise_exception=True)
 
         try:

@@ -25,10 +25,7 @@ class PhotoSerializer(ModelSerializer):
         read_only_fields = ["owner", "location", "timestamp"]
 
     def create(self, validated_data):
-        from django.contrib.auth import get_user_model
-        # TODO: Dummy user for now. Replace with authenticated user when auth implemented
-        User = get_user_model()
-        owner = User.objects.get(pk=1) 
+        owner = self.context.get("owner")
 
         image = validated_data.get("image")
         timestamp, loc = read_photo_metadata(image)
