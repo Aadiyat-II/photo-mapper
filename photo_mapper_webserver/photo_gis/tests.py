@@ -1,11 +1,12 @@
 import shutil
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 from django.test import TestCase
-from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
+from django.db.utils import IntegrityError
 
 from .models import Tag, Photo, photo_directory_path
 
@@ -22,7 +23,7 @@ class PhotoTests(TestCase):
             [Tag(name=name) for name in tag_names]
         )
         
-        image_files = [
+        self.image_files = [
             SimpleUploadedFile(
                 name="DSCF0001.jpg",
                 content=b"imagedata",
@@ -36,15 +37,15 @@ class PhotoTests(TestCase):
         ]
 
         self.location = Point(0.0, 0.0, srid=4326) # lon/lat
-        self.datetime = datetime.now(tz=timezone.utc)
+        self.timestamp = datetime.now(tz=timezone.utc)
 
         self.photos = Photo.objects.bulk_create(
             [Photo(
                 owner = self.owner,
                 image = image_file,
                 location = self.location,
-                datetime = self.datetime,
-            ) for image_file in image_files]
+                timestamp = self.timestamp + timedelta(minutes=i),
+            ) for i, image_file in enumerate(self.image_files)]
         )        
 
     def test_photo_directory_path(self):
@@ -63,7 +64,7 @@ class PhotoTests(TestCase):
 
         self.assertEqual(self.photos[0].owner, self.owner)
         self.assertEqual(self.photos[0].location, self.location)
-        self.assertEqual(self.photos[0].datetime, self.datetime)
+        self.assertEqual(self.photos[0].timestamp, self.timestamp)
         self.assertIsInstance(self.photos[0].id, uuid.UUID)
 
         # Test photo upload directory
@@ -90,6 +91,25 @@ class PhotoTests(TestCase):
         related_photos = [photo.id for photo in self.tags[0].photos.all()]
         for photo in self.photos:
             self.assertIn(photo.id, related_photos)
+
+    def test_photo_unique_time_and_place(self):
+        duplicate_photo = {
+                "owner": self.owner,
+                "image": self.image_files[0],
+                "location": self.location,
+                "timestamp": self.timestamp
+        }
+
+        with self.assertRaises(IntegrityError):
+            Photo.objects.create(**duplicate_photo)
+
+    def test_tags_unique(self):
+        duplicate_tag = {
+            "name" : self.tags[0].name
+        }
+
+        with self.assertRaises(IntegrityError):
+            Tag.objects.create(**duplicate_tag)
 
     def tearDown(self):
         super().tearDown()

@@ -15,8 +15,8 @@ class PhotoSerializer(ModelSerializer):
 
     class Meta:
         model = Photo
-        fields = ["owner", "image", "location", "datetime", "tags"]
-        read_only_fields = ["owner", "location", "datetime",]
+        fields = ["owner", "image", "location", "timestamp", "tags"]
+        read_only_fields = ["owner", "location", "timestamp",]
 
     def create(self, validated_data):
         from django.contrib.auth import get_user_model
@@ -25,8 +25,8 @@ class PhotoSerializer(ModelSerializer):
         owner = User.objects.get(pk=1) 
 
         image = validated_data.get("image")
-        dt, loc = read_photo_metadata(image)
-        validated_data["datetime"] = dt
+        timestamp, loc = read_photo_metadata(image)
+        validated_data["timestamp"] = timestamp
         validated_data["location"] = loc
         validated_data["owner"] = owner
 

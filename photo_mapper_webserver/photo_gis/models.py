@@ -1,6 +1,5 @@
 import os
 import uuid
-from pathlib import Path
 from django.contrib.gis.db import models
 from django.conf import settings
 
@@ -13,7 +12,7 @@ def photo_directory_path(instance, filename):
 
 
 class Tag(models.Model):
-    name = models.CharField(max_length=50)
+    name = models.CharField(max_length=50, unique=True)
 
     def __str__(self):
         return self.name
@@ -23,9 +22,18 @@ class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     image = models.ImageField(upload_to=photo_directory_path)
-    location = models.PointField()
-    datetime = models.DateTimeField()
+    location = models.PointField(geography=True)
+    timestamp = models.DateTimeField()
     tags = models.ManyToManyField(Tag, related_name='photos')
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['timestamp'], name='timestamp_index'),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(fields=["location", "timestamp", "owner"], name="unique_time_and_place")
+        ]
+    
     def __str__(self):
-        return f"{self.location.wkt}:{self.datetime}"
+        return f"{self.location.wkt}:{self.timestamp}"
