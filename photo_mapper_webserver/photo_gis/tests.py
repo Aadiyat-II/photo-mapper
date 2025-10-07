@@ -1,5 +1,6 @@
 import shutil
 import uuid
+import tempfile
 from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 from django.test import TestCase
@@ -7,8 +8,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth import get_user_model
 from django.contrib.gis.geos import Point
 from django.db.utils import IntegrityError, DataError
+from rest_framework.test import APIRequestFactory, force_authenticate
+from rest_framework import status
+
+from PIL import Image, ExifTags
 
 from .models import Tag, Photo, photo_directory_path
+from .views import PhotoList
 
 # Create your tests here.
 
@@ -37,7 +43,7 @@ class PhotoTests(TestCase):
         ]
 
         self.location = Point(0.0, 0.0, srid=4326) # lon/lat
-        self.timestamp = datetime.now(tz=timezone.utc)
+        self.timestamp = datetime(2205, 1, 1, 12, 0, 0).replace(tzinfo=timezone.utc)
 
         self.photos = Photo.objects.bulk_create(
             [Photo(
@@ -101,6 +107,147 @@ class PhotoTests(TestCase):
         with self.assertRaises(IntegrityError):
             Photo.objects.create(**duplicate_photo)
 
+    
+    def test_photo_view_get_only_returns_photos_belonging_to_authenticated_user(self):
+        second_user = User.objects.create(username="Second User", password="123456789")
+        photo = Photo.objects.create(
+                owner = second_user,
+                image = SimpleUploadedFile(
+                    name="DSCF0004.jpg",
+                    content=b"imagedata",
+                    content_type="image/jpeg"
+                ),
+                location = self.location,
+                timestamp = self.timestamp + timedelta(minutes=30)
+        )
+        
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.get('/collections/photos/')
+        force_authenticate(request, second_user)
+        response = view(request)
+        
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0].get("owner"), "Second User")
+    
+    def test_photo_view_get_does_not_allow_unauthenticated_users(self):
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.get('/collections/photos/')
+        response = view(request)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+    
+    def test_photo_post(self):
+        image = Image.new('RGB', (100, 100))
+        exif = self._write_exif_data(image.getexif(), timestamp=self.timestamp, point=Point(1,1))
+        tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
+        image.save(tmpfile, exif=exif)
+        tmpfile.seek(0)
+
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.post(
+            '/collections/photos/', 
+            {
+                "image": tmpfile
+            },
+            format='multipart'
+        )
+
+        force_authenticate(request, self.owner)
+        response = view(request)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Photo.objects.all().count(), 3)
+        tmpfile.close()
+    
+    def test_photo_post_returns_error_for_identical_time_and_place(self):
+        image = Image.new('RGB', (100, 100))
+        exif = self._write_exif_data(image.getexif(), timestamp=self.timestamp, point=Point(0, 0))
+        tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
+        image.save(tmpfile, exif=exif)
+        tmpfile.seek(0)
+
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.post(
+            '/collections/photos/', 
+            {
+                "image": tmpfile
+            },
+            format='multipart'
+        )
+
+        force_authenticate(request, self.owner)
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        tmpfile.close()
+
+    def test_photo_post_returns_error_if_photo_missing_timestamp(self):
+        image = Image.new('RGB', (100, 100))
+        exif = self._write_timestamp(image.getexif(), timestamp=self.timestamp+timedelta(1))
+        tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
+        image.save(tmpfile, exif=exif)
+        tmpfile.seek(0)
+
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.post(
+            '/collections/photos/', 
+            {
+                "image": tmpfile
+            },
+            format='multipart'
+        )
+
+        force_authenticate(request, self.owner)
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        tmpfile.close()
+
+    def test_photo_post_returns_error_if_photo_missing_gps_info(self):
+        image = Image.new('RGB', (100, 100))
+        exif = self._write_gps_info(image.getexif(), point=Point(0, 0))
+        tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
+        image.save(tmpfile, exif=exif)
+        tmpfile.seek(0)
+
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.post(
+            '/collections/photos/', 
+            {
+                "image": tmpfile
+            },
+            format='multipart'
+        )
+
+        force_authenticate(request, self.owner)
+        response = view(request)
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        tmpfile.close()
+
+    def _write_exif_data(self, exif, timestamp:datetime, point:Point):
+        exif = self._write_timestamp(exif, timestamp)
+        exif = self._write_gps_info(exif, point)
+        return exif
+
+    def _write_gps_info(self, exif, point):
+        gps_ifd = exif.get_ifd(ExifTags.IFD.GPSInfo)
+        gps_ifd[ExifTags.GPS.GPSLatitude] = (point.y, 0, 0)
+        gps_ifd[ExifTags.GPS.GPSLatitudeRef] = 'N'
+        gps_ifd[ExifTags.GPS.GPSLongitude] = (point.x, 0, 0)
+        gps_ifd[ExifTags.GPS.GPSLongitudeRef] = 'E'
+
+        return exif
+
+    def _write_timestamp(self, exif, timestamp):
+        exif_ifd = exif.get_ifd(ExifTags.IFD.Exif)
+        exif_ifd[ExifTags.Base.DateTimeOriginal] = timestamp.strftime(r"%Y:%m:%d %H:%M:%S")
+        return exif
 
     def tearDown(self):
         super().tearDown()
@@ -129,3 +276,10 @@ class TagTests(TestCase):
 
         with self.assertRaises(DataError):
             Tag.objects.create(**long_tag)
+    
+    def test_tag_view_does_not_allow_unauthenticated_users(self):
+        factory = APIRequestFactory()
+        view = PhotoList.as_view()
+        request = factory.get('/collections/tags/')
+        response = view(request)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

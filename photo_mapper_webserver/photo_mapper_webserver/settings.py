@@ -39,6 +39,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'daphne',
     'photo_gis.apps.PhotoGisConfig',
+    'photo_mapper_auth.apps.PhotoMapperAuthConfig',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -48,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.gis',
     'rest_framework',
     'rest_framework_gis',
+    'rest_framework_simplejwt',
 ]
 
 MIDDLEWARE = [
@@ -142,3 +144,10 @@ CELERY_RESULT_BACKEND = 'redis://localhost'
 
 # GEODJANGO
 GDAL_LIBRARY_PATH = env('GDAL_LIBRARY_PATH')
+
+# REST FRAMEWORK
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ]
+}

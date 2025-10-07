@@ -1,11 +1,12 @@
-import json
 from django.db.utils import IntegrityError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.generics import GenericAPIView
 from rest_framework.reverse import reverse
 from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
 import rest_framework.status as status
+import rest_framework.exceptions as exceptions
 
 from photo_gis.models import Photo, Tag
 from photo_gis.serializers import PhotoSerializer, TagSerializer
@@ -29,9 +30,14 @@ def api_root(request: Request):
 
 
 class PhotoList(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Photo.objects.filter(owner=self.request.user)
+
     def get(self, request: Request):
-        photos = Photo.objects.all()
-        serializer = PhotoSerializer(photos, many=True)
+        queryset = self.get_queryset()
+        serializer = PhotoSerializer(queryset, many=True)
         return Response(serializer.data)
     
     def post(self, request: Request):
@@ -51,20 +57,24 @@ class PhotoList(GenericAPIView):
             "tags": request.data.getlist("tags", [])
         }
 
-        serializer = PhotoSerializer(data=data)
+        serializer = PhotoSerializer(data=data, context = {"owner": request.user})
         serializer.is_valid(raise_exception=True)
 
         try:
             serializer.save()
         except IntegrityError:
-            return Response({"message": "A photo at the same time and location already exists"}, status=status.HTTP_400_BAD_REQUEST)
+            raise exceptions.ParseError("A photo at the same time and location already exists")
         except ExifException:
-            return Response({"message": "Photo is missing datetime or GPS information."}, status=status.HTTP_400_BAD_REQUEST)
+            raise exceptions.ParseError("Photo is missing datetime or GPS information.")
+        except Exception:
+            raise exceptions.APIException("An unknown error occured.")
 
-        return Response({"message" : "Photos created"}, status=status.HTTP_201_CREATED)
+        return Response({"detail" : "Photos created"}, status=status.HTTP_201_CREATED)
 
 
 class TagList(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request: Request):
         tags = Tag.objects.all()
         serializer = TagSerializer(tags, many=True)

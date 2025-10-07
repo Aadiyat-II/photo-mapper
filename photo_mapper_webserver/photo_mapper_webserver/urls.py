@@ -19,5 +19,6 @@ from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('collections/', include("photo_gis.urls"))
+    path('collections/', include("photo_gis.urls")),
+    path('auth/', include("photo_mapper_auth.urls"))
 ]
