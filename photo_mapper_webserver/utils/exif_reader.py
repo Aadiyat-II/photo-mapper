@@ -30,22 +30,29 @@ def read_photo_metadata(photo_file: UploadedFile):
 def get_datetime(exif: Image.Exif):
     """
     Extracts datetime information from an Exif object.
-
+    
     Args:
         exif: An Image.Exif object containing photo metadata
-    Returns
-        Datetime object representing when the photo was taken. Timezone naive.
+    Returns:
+        Datetime object representing when the photo was taken.
+    Raises:
+        DateTimeMissingException if either DateTimeOriginal or OffsetTimeOriginal Exif tags are missing.
+        This assumes that any photo with both datetime and GPS information will have timezone information.
     """
     exif_ifd = exif.get_ifd(ExifTags.IFD.Exif) # Returns an empty dict if ExifTags.IFD.Exif not found
     try:
+        dt_string = exif_ifd.get(ExifTags.Base.DateTimeOriginal)
+        tz_string = exif_ifd.get(ExifTags.Base.OffsetTimeOriginal)
+        
         dt = datetime.strptime(
-            exif_ifd.get(ExifTags.Base.DateTimeOriginal), 
-            r"%Y:%m:%d %H:%M:%S"
+            dt_string + tz_string,
+            r"%Y:%m:%d %H:%M:%S%z"
         )
     except TypeError:
-        raise DateTimeMissingException("Exif data missing datetime.")
+        raise DateTimeMissingException("Exif data missing datetime or timezone information.")
     else:
-        return dt 
+        return dt   
+
 
 def get_location(exif: Image.Exif):
     """
@@ -54,7 +61,10 @@ def get_location(exif: Image.Exif):
     Args:
         exif: An Image.Exif object containing photo metadata
     Returns:
-        A Geos Point object representing where the photo was taken. 
+        A Geos Point object representing where the photo was taken.
+    Raises:
+        GPSInfoMissingException if any of GPSLatitude, GPSLatitudeRef,
+        GPSLongitude, GPSLongitudeRef are missing.
     """
     gps_ifd = exif.get_ifd(ExifTags.IFD.GPSInfo)
     
