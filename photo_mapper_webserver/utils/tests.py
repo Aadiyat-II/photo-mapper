@@ -1,7 +1,7 @@
 from unittest import TestCase
 from unittest.mock import MagicMock
 
-from datetime import datetime
+from datetime import datetime, timezone
 from PIL import ExifTags
 from PIL.TiffImagePlugin import IFDRational
 from django.contrib.gis.geos import Point
@@ -12,40 +12,61 @@ from .exif_exception import DateTimeMissingException, GPSInfoMissingException
 class ExifReaderTests(TestCase):
 
     def setUp(self):
+        self.exif_mock = MagicMock()
         super().setUp()
 
     def test_get_datetime(self):
         dt = datetime(2025, 1, 1, 1, 1, 1)
-        exif_mock = MagicMock()
-
+        dt_string = dt.strftime(r"%Y:%m:%d %H:%M:%S")
+        tz_string = "+04:00"
         exif_ifd_mock = {
-            ExifTags.Base.DateTimeOriginal: dt.strftime(R"%Y:%m:%d %H:%M:%S")
+            ExifTags.Base.DateTimeOriginal: dt_string,
+            ExifTags.Base.OffsetTimeOriginal: tz_string
         }
+        self.exif_mock.get_ifd.return_value = exif_ifd_mock    
+        result = get_datetime(self.exif_mock)
 
-        exif_mock.get_ifd.return_value = exif_ifd_mock    
-
-        result = get_datetime(exif_mock)
-
-        self.assertEqual(result, dt)
+        self.assertEqual(result, datetime.strptime(dt_string + tz_string, r"%Y:%m:%d %H:%M:%S%z"))
 
     def test_get_datetime_raises_exception_if_datetime_missing(self):
-        exif_mock = MagicMock()
+        exif_ifd_mock = {}
+        self.exif_mock.get_ifd.return_value = exif_ifd_mock    
+
+        with self.assertRaises(DateTimeMissingException):
+            get_datetime(self.exif_mock)
 
         exif_ifd_mock = {
-            ExifTags.Base.DateTimeOriginal: None
+            ExifTags.Base.DateTimeOriginal: None,
          }
-
-        exif_mock.get_ifd.return_value = exif_ifd_mock    
-
+        self.exif_mock.get_ifd.return_value = exif_ifd_mock
+        
         with self.assertRaises(DateTimeMissingException):
-            get_datetime(exif_mock)
+            get_datetime(self.exif_mock)
+        
+    def test_get_datetime_raises_expection_if_timezone_missing(self):
+        dt = datetime(2025, 1, 1, 1, 1, 1)
+        dt_string = dt.strftime(r"%Y:%m:%d %H:%M:%S")
+        exif_ifd_mock = {
+            ExifTags.Base.DateTimeOriginal: dt_string,
+        }
+        self.exif_mock.get_ifd.return_value = exif_ifd_mock    
+        with self.assertRaises(DateTimeMissingException):
+
+            get_datetime(self.exif_mock)
+        
+        exif_ifd_mock = {
+            ExifTags.Base.DateTimeOriginal: dt.strftime(R"%Y:%m:%d %H:%M:%S"),
+            ExifTags.Base.OffsetTimeOriginal: None,
+        }
+        self.exif_mock.get_ifd.return_value = exif_ifd_mock    
+        with self.assertRaises(DateTimeMissingException):
+            get_datetime(self.exif_mock)
 
     def test_get_datetime_raises_exception_if_exif_ifd_missing(self):
-        exif_mock = MagicMock()
-        exif_mock.get_ifd.return_value = { }
+        self.exif_mock.get_ifd.return_value = { }
 
         with self.assertRaises(DateTimeMissingException):
-            get_datetime(exif_mock)
+            get_datetime(self.exif_mock)
 
     def test_DMS_to_decimal(self):
         degrees = IFDRational(1,1)
@@ -78,8 +99,6 @@ class ExifReaderTests(TestCase):
         self.assertAlmostEqual(expected_value, DMS_to_decimal(degrees, minutes, seconds, direction))
 
     def test_get_location(self):
-        exif_mock = MagicMock()
-
         gps_ifd_mock = {
             ExifTags.GPS.GPSLatitudeRef: "N",
             ExifTags.GPS.GPSLatitude: (
@@ -95,15 +114,13 @@ class ExifReaderTests(TestCase):
             )
         }
 
-        exif_mock.get_ifd.return_value = gps_ifd_mock
+        self.exif_mock.get_ifd.return_value = gps_ifd_mock
 
         expected_value = Point(-157.39652777777778, 1.859388888888889)
 
-        self.assertAlmostEqual(get_location(exif_mock), expected_value)
+        self.assertAlmostEqual(get_location(self.exif_mock), expected_value)
 
     def test_get_location_raises_exception_if_Location_Missing(self):
-        exif_mock = MagicMock()
-
         gps_ifd_mock = {
             ExifTags.GPS.GPSLatitudeRef: "N",
             ExifTags.GPS.GPSLatitude: (
@@ -118,10 +135,10 @@ class ExifReaderTests(TestCase):
             )
         }
 
-        exif_mock.get_ifd.return_value = gps_ifd_mock
+        self.exif_mock.get_ifd.return_value = gps_ifd_mock
 
         with self.assertRaises(GPSInfoMissingException):
-            get_location(exif_mock)
+            get_location(self.exif_mock)
 
 
         gps_ifd_mock = {
@@ -135,12 +152,10 @@ class ExifReaderTests(TestCase):
         }
 
         with self.assertRaises(GPSInfoMissingException):
-            get_location(exif_mock)
+            get_location(self.exif_mock)
 
     def test_get_location_raises_exception_if_gps_ifd_missing(self):
-        exif_mock = MagicMock()
-
-        exif_mock.get_ifd.return_value = { }
+        self.exif_mock.get_ifd.return_value = { }
 
         with self.assertRaises(GPSInfoMissingException):
-            get_location(exif_mock)
+            get_location(self.exif_mock)

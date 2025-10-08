@@ -184,7 +184,7 @@ class PhotoTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         tmpfile.close()
 
-    def test_photo_post_returns_error_if_photo_missing_timestamp(self):
+    def test_photo_post_returns_error_if_photo_missing_gps_info(self):
         image = Image.new('RGB', (100, 100))
         exif = self._write_timestamp(image.getexif(), timestamp=self.timestamp+timedelta(1))
         tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
@@ -207,7 +207,7 @@ class PhotoTests(TestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         tmpfile.close()
 
-    def test_photo_post_returns_error_if_photo_missing_gps_info(self):
+    def test_photo_post_returns_error_if_photo_missing_timestamp(self):
         image = Image.new('RGB', (100, 100))
         exif = self._write_gps_info(image.getexif(), point=Point(0, 0))
         tmpfile = tempfile.NamedTemporaryFile(suffix='.jpg')
@@ -247,6 +247,7 @@ class PhotoTests(TestCase):
     def _write_timestamp(self, exif, timestamp):
         exif_ifd = exif.get_ifd(ExifTags.IFD.Exif)
         exif_ifd[ExifTags.Base.DateTimeOriginal] = timestamp.strftime(r"%Y:%m:%d %H:%M:%S")
+        exif_ifd[ExifTags.Base.OffsetTimeOriginal] = "+00:00"
         return exif
 
     def tearDown(self):
