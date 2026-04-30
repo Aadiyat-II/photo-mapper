@@ -37,7 +37,7 @@ class PhotoList(GenericAPIView):
 
     def get(self, request: Request):
         queryset = self.get_queryset()
-        serializer = PhotoSerializer(queryset, many=True)
+        serializer = PhotoSerializer(queryset, many=True, context = {"request" : request})
         return Response(serializer.data)
     
     def post(self, request: Request):
@@ -57,7 +57,7 @@ class PhotoList(GenericAPIView):
             "tags": request.data.getlist("tags", [])
         }
 
-        serializer = PhotoSerializer(data=data, context = {"owner": request.user})
+        serializer = PhotoSerializer(data=data, context = {"owner": request.user, "request" : request})
         serializer.is_valid(raise_exception=True)
 
         try:
@@ -70,6 +70,18 @@ class PhotoList(GenericAPIView):
             raise exceptions.APIException("An unknown error occured.")
 
         return Response({"detail" : "Photos created"}, status=status.HTTP_201_CREATED)
+
+
+class PhotoDetail(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_photo(self , id):
+        return Photo.objects.get(owner=self.request.user, id=id)
+
+    def get(self, request, id=None):
+        photo = self.get_photo(id)
+        serializer = PhotoSerializer(photo , context = {"request" : request})
+        return Response(serializer.data)
 
 
 class TagList(GenericAPIView):
