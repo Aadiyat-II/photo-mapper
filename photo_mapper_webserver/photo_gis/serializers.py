@@ -1,6 +1,7 @@
 from rest_framework.serializers import ModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
 from photo_gis.models import Photo, Tag
 from utils.exif_reader import read_photo_metadata
+from utils.resize_photo import resize_image
 
 
 class TagSerializer(ModelSerializer):
@@ -27,11 +28,14 @@ class PhotoSerializer(ModelSerializer):
     def create(self, validated_data):
         owner = self.context.get("owner")
 
-        image = validated_data.get("image")
-        timestamp, loc = read_photo_metadata(image)
+        image_file = validated_data.pop("image")
+        timestamp, loc = read_photo_metadata(image_file)
+        resized_image = resize_image(image_file)
+
         validated_data["timestamp"] = timestamp
         validated_data["location"] = loc
         validated_data["owner"] = owner
+        validated_data["image"] = resized_image
 
         tags = [Tag.objects.get_or_create(name=tag)[0] for tag in validated_data.pop("tags")]
 
