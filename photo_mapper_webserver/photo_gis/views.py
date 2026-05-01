@@ -69,7 +69,7 @@ class PhotoList(GenericAPIView):
         except Exception:
             raise exceptions.APIException("An unknown error occured.")
 
-        return Response({"detail" : "Photos created"}, status=status.HTTP_201_CREATED)
+        return Response({"detail" : "Photo created"}, status=status.HTTP_201_CREATED)
 
 
 class PhotoDetail(GenericAPIView):
@@ -81,6 +81,14 @@ class PhotoDetail(GenericAPIView):
     def get(self, request, id=None):
         photo = self.get_photo(id)
         serializer = PhotoSerializer(photo , context = {"request" : request})
+        return Response(serializer.data)
+    
+    def patch(self, request, id=None):
+        print(request.data)
+        photo = self.get_photo(id)
+        serializer =  PhotoSerializer(photo, request.data, context = {"request" : request}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
         return Response(serializer.data)
 
 

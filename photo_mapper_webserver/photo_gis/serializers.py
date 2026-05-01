@@ -47,3 +47,14 @@ class PhotoSerializer(HyperlinkedModelSerializer):
         photo.tags.set(tags)
 
         return photo
+    
+    def update(self, instance, validated_data):
+        tag_data = validated_data.pop("tags", None)
+
+        instance = super().update(instance, validated_data)
+
+        if tag_data is not None:
+            tags = [Tag.objects.get_or_create(name=name)[0] for name in tag_data]
+            instance.tags.set(tags)
+
+        return instance
