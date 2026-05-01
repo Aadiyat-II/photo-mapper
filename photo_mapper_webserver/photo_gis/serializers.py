@@ -58,3 +58,6 @@ class PhotoSerializer(HyperlinkedModelSerializer):
             instance.tags.set(tags)
 
         return instance
+    
+    def validate_tags(self, value):
+        return list({tag.lower().strip() for tag in value if tag.strip()})
