@@ -69,7 +69,7 @@ class PhotoList(GenericAPIView):
         except Exception:
             raise exceptions.APIException("An unknown error occured.")
 
-        return Response({"detail" : "Photo created"}, status=status.HTTP_201_CREATED)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class PhotoDetail(GenericAPIView):
