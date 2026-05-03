@@ -84,12 +84,17 @@ class PhotoDetail(GenericAPIView):
         return Response(serializer.data)
     
     def patch(self, request, id=None):
-        print(request.data)
         photo = self.get_photo(id)
         serializer =  PhotoSerializer(photo, request.data, context = {"request" : request}, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+    
+    def delete(self, request, id=None):
+        photo = self.get_photo(id)
+        photo.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 
 class TagList(GenericAPIView):
