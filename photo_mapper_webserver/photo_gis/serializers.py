@@ -1,4 +1,4 @@
-from rest_framework.serializers import ModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
+from rest_framework.serializers import ModelSerializer, HyperlinkedModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
 from photo_gis.models import Photo, Tag
 from utils.exif_reader import read_photo_metadata
 from utils.resize_photo import resize_image
@@ -10,7 +10,7 @@ class TagSerializer(ModelSerializer):
         fields = ["name"]
 
 
-class PhotoSerializer(ModelSerializer):
+class PhotoSerializer(HyperlinkedModelSerializer):
     owner = ReadOnlyField(source="owner.username")
     tags = ListField(
         child = CharField(max_length=50), 
@@ -22,8 +22,12 @@ class PhotoSerializer(ModelSerializer):
 
     class Meta:
         model = Photo
-        fields = ["owner", "image", "location", "timestamp", "tags", "tag_names"]
+        fields = ["url", "owner", "image", "location", "timestamp", "tags", "tag_names"]
         read_only_fields = ["owner", "location", "timestamp"]
+        
+        extra_kwargs = {
+            'url': {'lookup_field': 'id'},
+        }
 
     def create(self, validated_data):
         owner = self.context.get("owner")
@@ -43,3 +47,17 @@ class PhotoSerializer(ModelSerializer):
         photo.tags.set(tags)
 
         return photo
+    
+    def update(self, instance, validated_data):
+        tag_data = validated_data.pop("tags", None)
+
+        instance = super().update(instance, validated_data)
+
+        if tag_data is not None:
+            tags = [Tag.objects.get_or_create(name=name)[0] for name in tag_data]
+            instance.tags.set(tags)
+
+        return instance
+    
+    def validate_tags(self, value):
+        return list({tag.lower().strip() for tag in value if tag.strip()})
