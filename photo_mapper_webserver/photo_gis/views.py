@@ -7,9 +7,11 @@ from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 import rest_framework.status as status
 import rest_framework.exceptions as exceptions
+from rest_framework_gis.pagination import GeoJsonPagination
 
 from photo_gis.models import Photo, Tag
 from photo_gis.serializers import PhotoSerializer, TagSerializer
+from photo_gis.pagination import PhotoGeoJsonPagination
 
 from utils.exif_exception import ExifException
 
@@ -31,14 +33,24 @@ def api_root(request: Request):
 
 class PhotoList(GenericAPIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = PhotoGeoJsonPagination
 
     def get_queryset(self):
         return Photo.objects.filter(owner=self.request.user)
 
     def get(self, request: Request):
         queryset = self.get_queryset()
+        print(f"DEBUG: Found {queryset.count()} photos in DB")
+        page = self.paginate_queryset(queryset)
+
+        if page is not None:
+            print(f"DEBUG: Are we here?")
+            serializer = PhotoSerializer(page, many=True, context = {"request" : request})
+            return self.get_paginated_response(serializer.data)
+        
         serializer = PhotoSerializer(queryset, many=True, context = {"request" : request})
         return Response(serializer.data)
+        
     
     def post(self, request: Request):
         """

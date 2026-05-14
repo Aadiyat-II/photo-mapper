@@ -1,8 +1,9 @@
-from rest_framework.serializers import ModelSerializer, HyperlinkedModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
-from photo_gis.models import Photo, Tag
+from rest_framework.serializers import HyperlinkedIdentityField, ModelSerializer, HyperlinkedModelSerializer, ReadOnlyField, ListField, CharField,  StringRelatedField
+from rest_framework_gis.serializers import GeoFeatureModelSerializer
 from utils.exif_reader import read_photo_metadata
 from utils.resize_photo import resize_image
 
+from photo_gis.models import Photo, Tag
 
 class TagSerializer(ModelSerializer):
     class Meta:
@@ -10,7 +11,7 @@ class TagSerializer(ModelSerializer):
         fields = ["name"]
 
 
-class PhotoSerializer(HyperlinkedModelSerializer):
+class PhotoSerializer(GeoFeatureModelSerializer):
     owner = ReadOnlyField(source="owner.username")
     tags = ListField(
         child = CharField(max_length=50), 
@@ -20,14 +21,16 @@ class PhotoSerializer(HyperlinkedModelSerializer):
 
     tag_names = StringRelatedField(many=True, source="tags", read_only=True)
 
+    url = HyperlinkedIdentityField(
+        view_name="photo-detail",
+        lookup_field="id"
+    )
+
     class Meta:
         model = Photo
         fields = ["url", "owner", "image", "location", "timestamp", "tags", "tag_names"]
         read_only_fields = ["owner", "location", "timestamp"]
-        
-        extra_kwargs = {
-            'url': {'lookup_field': 'id'},
-        }
+        geo_field = "location"
 
     def create(self, validated_data):
         owner = self.context.get("owner")
